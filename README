@@ -1,7 +1,5 @@
 # Gossip-Based Peer-to-Peer Network
-group members
-NAME - KULDEEP and KUMAVATH TANISHQ
-ROLL NO. - B23CS1029 , B23CS1030
+
 
 A Python implementation of a gossip-based P2P network with consensus-driven
 membership management, power-law topology, and liveness detection.
