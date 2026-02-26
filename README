@@ -1,0 +1,131 @@
+# Gossip-Based Peer-to-Peer Network
+group members
+NAME - KULDEEP and KUMAVATH TANISHQ
+ROLL NO. - B23CS1029 , B23CS1030
+
+A Python implementation of a gossip-based P2P network with consensus-driven
+membership management, power-law topology, and liveness detection.
+
+## Files
+
+| File          | Description                                       |
+|---------------|---------------------------------------------------|
+| `seed.py`     | Seed node  bootstraps peers, consensus voting    |
+| `peer.py`     | Peer node gossip, liveness, neighbor selection  |
+| `config.csv`  | Seed node IP/Port configuration                   |
+| `outputfile.txt` | Runtime log (auto-generated)                   |
+
+## Requirements
+
+- **Python 3.7+** (standard library only, no external packages)
+
+## Configuration
+
+Edit `config.csv` to list seed nodes, one per line:
+
+```
+<IP>,<PORT>
+```
+
+Example (3 seeds on localhost):
+```
+127.0.0.1,5001
+127.0.0.1,5002
+127.0.0.1,5003
+```
+
+## How to Compile and Run
+
+No compilation needed (pure Python).
+
+### Step 1 – Start Seed Nodes
+
+Open a separate terminal for each seed and run:
+
+```bash
+python seed.py 127.0.0.1 5001
+python seed.py 127.0.0.1 5002
+python seed.py 127.0.0.1 5003
+```
+
+### Step 2 – Start Peer Nodes
+
+Open additional terminals for each peer and run:
+
+```bash
+python peer.py 127.0.0.1 6001
+python peer.py 127.0.0.1 6002
+python peer.py 127.0.0.1 6003
+python peer.py 127.0.0.1 6004
+```
+
+Each peer will:
+1. Register with a majority of seeds (consensus-based).
+2. Discover other peers from seed node peer lists.
+3. Select neighbors using preferential attachment (power-law distribution).
+4. Begin generating gossip messages (every 5 seconds, max 10 per peer).
+5. Periodically ping neighbors for liveness detection.
+
+### Step 3 – Test Dead-Node Detection
+
+Kill a peer (Ctrl+C). After a few seconds:
+- Neighboring peers detect missed heartbeats.
+- Peer-level consensus confirms the node is dead.
+- Seeds receive the dead-node report and reach consensus to remove it.
+
+## Architecture
+
+```
+Seeds (consensus layer)         Peers (gossip overlay)
+┌─────────┐                     ┌─────────┐
+│ Seed 1  │◄────────────────────│ Peer A  │
+├─────────┤   register/         ├─────────┤
+│ Seed 2  │◄── dead-node ──────│ Peer B  │
+├─────────┤   reports           ├─────────┤
+│ Seed 3  │◄────────────────────│ Peer C  │
+└─────────┘                     └─────────┘
+   ▲  ▲  ▲                        ▲  ▲  ▲
+   └──┼──┘                        └──┼──┘
+  seed-to-seed                  peer gossip/
+  consensus                     ping/suspect
+```
+
+## Protocol Messages
+
+| Message | Direction | Purpose |
+|---------|-----------|---------|
+| `REGISTER:<ip>:<port>` | Peer → Seed | Join request |
+| `PROPOSE_REG` / `VOTE_REG` | Seed ↔ Seed | Registration consensus |
+| `REG_OK` / `REG_FAIL` | Seed → Peer | Registration result |
+| `GET_PEERS` | Peer → Seed | Request peer list |
+| `PEER_LIST:<...>` | Seed → Peer | Peer list |
+| `GOSSIP:<ts>:<ip>:<msg#>` | Peer ↔ Peer | Gossip broadcast |
+| `PING` / `PONG` | Peer ↔ Peer | Heartbeat |
+| `SUSPECT` / `SUSPECT_ACK` | Peer ↔ Peer | Liveness consensus |
+| `DEAD:<ip>:<port>:<ts>:<reporter>` | Peer → Seed | Dead-node report |
+| `PROPOSE_DEL` / `VOTE_DEL` | Seed ↔ Seed | Removal consensus |
+
+## Security Considerations
+
+- **No unilateral decisions:** Both registration and removal require majority consensus
+  among seeds, preventing a single compromised seed from manipulating membership.
+- **Two-level dead-node detection:** Peer-level consensus (majority of neighbors)
+  must confirm failure before seeds are notified, mitigating false accusations.
+- **Sybil resistance:** Registration requires quorum agreement, making it harder for
+  an attacker to flood the network with bogus nodes.
+- **Collusion mitigation:** An attacker would need to control ⌊n/2⌋+1 seeds AND
+  a majority of a target's neighbors to falsely evict a peer.
+
+## Output
+
+All events are logged to `outputfile.txt` with timestamps, including:
+- Peer registration proposals and consensus outcomes
+- Received peer lists
+- Gossip messages (first receipt only)
+- Dead-node reports and removals
+
+## Running on Different Machines
+
+Update `config.csv` with the actual IP addresses of the seed machines.
+Ensure all machines can reach each other on the configured ports (firewall
+rules may need adjustment).
